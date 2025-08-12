@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Gestor de Portefólio – Pro v1.5.5 (Stable)</title>
+  <title>Gestor de Portefólio – Pro v1.5.5</title>
   <style>
     :root{
       --bg:#0b0f17; --panel:#121826; --card:#161f31; --muted:#a7b0be; --text:#e6edf3;
@@ -20,8 +20,11 @@
     .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px}
     input,select,button,textarea{background:#0e1626;color:var(--text);border:1px solid var(--border);border-radius:10px;padding:8px}
     input[type="number"]{width:120px} button{cursor:pointer}
-    table{width:100%;border-collapse:collapse} th,td{padding:8px;border-bottom:1px solid var(--border);text-align:right}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:8px;border-bottom:1px solid var(--border);text-align:right}
     th:first-child,td:first-child{text-align:left}
+    /* sticky THEAD per pedido */
+    thead th { position: sticky; top: 0; z-index: 5; background: #0f172a; }
     .kpi{padding:8px 12px;border-radius:999px;background:#0e1626;border:1px solid var(--border);display:inline-flex;align-items:center;gap:6px}
     .pill{padding:6px 10px;border-radius:999px;background:#0e1626;border:1px solid var(--border)}
     .good{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)}
@@ -43,14 +46,12 @@
   <div class="wrap">
     <div>
       <h1>Gestor de Portefólio – Pro v1.5.5</h1>
-      <div class="muted small">Rebalanceamento robusto e interativo. PPR e Cash fora do rebalance.</div>
+      <div class="muted small">Versão estável. PPR e Cash fora do rebalance; ETFs via JustETF; Sync via Gist.</div>
     </div>
     <div class="row">
       <span class="small">Moeda base</span>
-      <select id="base">
-        <option>EUR</option><option>USD</option>
-      </select>
-      <span class="small">Taxa EUR→USD</span>
+      <select id="base"><option>EUR</option><option>USD</option></select>
+      <span class="small">EUR→USD</span>
       <input id="fx" type="number" step="0.0001" value="1.1000" title="USD por 1 EUR"/>
       <button id="saveTop">Guardar</button>
     </div>
@@ -66,7 +67,7 @@
     <div class="tab" data-tab="settings">Definições & Import/Export</div>
   </div>
 
-  <!-- PORTFOLIO TAB -->
+  <!-- PORTFOLIO -->
   <section id="portfolio" class="card">
     <div class="grid2">
       <div>
@@ -81,7 +82,7 @@
         <div class="row" style="margin-top:8px;flex-wrap:wrap">
           <input id="nName" placeholder="Nome" class="grow"/>
           <input id="nTicker" placeholder="Ticker"/>
-          <input id="nISIN" placeholder="ISIN (opcional p/ ETF)"/>
+          <input id="nISIN" placeholder="ISIN (ETF)"/>
           <select id="nCat"><option>ETF</option><option>Ação</option><option>REIT</option><option>Crypto</option><option>Ouro</option><option>PPR</option><option>Cash</option><option>Outro</option></select>
           <select id="nCcy"><option>EUR</option><option>USD</option><option>GBP</option></select>
           <input id="nUnits" type="number" placeholder="Unidades" step="0.000001"/>
@@ -93,7 +94,7 @@
       </div>
     </div>
 
-    <div style="overflow:auto;margin-top:10px">
+    <div style="overflow:auto;margin-top:10px;max-height:60vh">
       <table id="tbl">
         <thead>
           <tr>
@@ -119,7 +120,7 @@
     </div>
   </section>
 
-  <!-- REBALANCE TAB -->
+  <!-- REBALANCE -->
   <section id="rebalance" class="card" style="display:none">
     <div class="grid2">
       <div>
@@ -141,7 +142,7 @@
     </div>
   </section>
 
-  <!-- ALLOCATION TAB -->
+  <!-- ALLOCATION -->
   <section id="allocation" class="card" style="display:none">
     <div class="grid2">
       <div>
@@ -157,7 +158,7 @@
     </div>
   </section>
 
-  <!-- FIRE TAB -->
+  <!-- FIRE -->
   <section id="fire" class="card" style="display:none">
     <div class="grid3">
       <div>
@@ -189,7 +190,7 @@
     <div class="small muted" style="margin-top:8px">Nota: a regra dos 4% é referência histórica. Ajusta conforme tolerância a risco e composição da carteira.</div>
   </section>
 
-  <!-- SETTINGS TAB -->
+  <!-- SETTINGS -->
   <section id="settings" class="card" style="display:none">
     <div class="grid2">
       <div>
@@ -218,8 +219,8 @@
         <div class="row" style="margin-top:8px">
           <button id="resetAll" class="warn">Repor predefinições</button>
         </div>
-      
-        <hr style="border-color:var(--border);opacity:.3;margin:14px 0"/>
+      </div>
+      <div>
         <b>Sincronização (GitHub Gist)</b>
         <div class="row" style="margin-top:8px;gap:8px;flex-wrap:wrap">
           <input id="ghToken" type="password" placeholder="GitHub token (scope: gist)"/>
@@ -234,11 +235,11 @@
           <label class="row"><input type="checkbox" id="autoSync"/> Auto-sync ao abrir</label>
         </div>
         <div id="syncStatus" class="status small mono">Sincronização inativa.</div>
-</div>
-      <div>
+
+        <hr style="border-color:var(--border);opacity:.3;margin:14px 0"/>
         <b>Ajuda rápida</b>
         <ul class="small">
-          <li>Clica no <b>nome</b> do ETF para abrir o perfil no <b>JustETF</b> (usa ISIN se existir, senão abre a pesquisa do JustETF).</li>
+          <li>Clica no <b>nome</b> do ETF para abrir o perfil no <b>JustETF</b> (usa ISIN se existir, senão abre a pesquisa).</li>
           <li>FX EUR→USD atualiza ao abrir e no botão “Atualizar câmbio agora”.</li>
           <li>PPR e Cash ficam fora do rebalance e do P/L. Alocação liga categoria ⇄ targets por ativo.</li>
         </ul>
@@ -249,7 +250,7 @@
 
 <script>
 // ---------- Data Model ----------
-const LS_KEY = "portfolio_pro_v1_5_5_sync";
+const LS_KEY = "portfolio_pro_v1_5_5_sync_stable";
 const defaults = {
   base: "EUR",
   fx: 1.10,
@@ -282,7 +283,7 @@ let state = load();
 // ---------- Helpers ----------
 function eurToUsd(eur, fx){ return eur * fx; }
 function usdToEur(usd, fx){ return usd / fx; }
-function gbpToEur(gbp){ return gbp * 1.18; } // aprox estática
+function gbpToEur(gbp){ return gbp * 1.18; } // aprox
 function gbpToUsd(gbp, fx){ return gbpToEur(gbp) * state.fx; }
 
 function toBase(value, ccy){
@@ -321,7 +322,6 @@ async function safeFetch(url){
   throw new Error("Falha ao obter: "+url);
 }
 
-// ---------- Providers ----------
 // Yahoo
 async function fetchYahoo(symbols){
   if(!symbols.length) return [];
@@ -400,7 +400,7 @@ async function fetchFxEURUSD(){
   return null;
 }
 
-// JustETF helpers (para atualização de ETFs pelo ISIN)
+// JustETF helpers
 function looksLikeISIN(s){ return /^[A-Z]{2}[A-Z0-9]{9}[0-9]$/.test((s||"").trim()); }
 async function resolveISINFromJustETF(query){
   const url = `https://www.justetf.com/en/find-etf.html?query=${encodeURIComponent(query)}`;
@@ -438,7 +438,7 @@ async function fetchJustETFPriceByISIN(isin){
   return null;
 }
 
-// ---------- UI Binding ----------
+// ---------- UI ----------
 const $ = sel => document.querySelector(sel);
 const $$ = sel => document.querySelectorAll(sel);
 
@@ -598,7 +598,7 @@ function renderPortfolio(){
   });
 }
 
-// Table delegation
+// table updates & buttons
 document.querySelector("#tbl tbody").addEventListener("change", (e)=>{
   const el = e.target;
   const i = +el.dataset.i, k = el.dataset.k;
@@ -641,11 +641,6 @@ function renderAllocation(){
     `;
     wrap.appendChild(row);
   });
-  const totalLine = document.createElement("div");
-  totalLine.className = "row";
-  totalLine.innerHTML = `<div class="pill">Total targets por categoria: <b id="catTotal">—</b></div>`;
-  wrap.appendChild(totalLine);
-
   const inputs = wrap.querySelectorAll("input");
   inputs.forEach(inp=> inp.oninput = ()=>{
     const cat = inp.dataset.cat;
@@ -662,17 +657,14 @@ function renderAllocation(){
     save(); renderAll(); recomputeOrders();
   });
 
-  $("#catTotal").textContent = Object.values(state.categoryTargets).reduce((a,b)=>a+(+b||0),0).toFixed(2) + "%";
   drawPie();
 }
-
 function drawPie(){
   const canvas = $("#pie"); const ctx = canvas.getContext("2d");
   ctx.clearRect(0,0,canvas.width,canvas.height);
   const rows = computeRows();
   const cats = {};
-  rows.forEach(r=> cats[r.cat] = (cats[r.cat]||0) + r.nowBase;
-  );
+  rows.forEach(r=> cats[r.cat] = (cats[r.cat]||0) + r.nowBase);
   const total = rows.total||1;
   const targets = state.categoryTargets;
   const colors = ["#3b82f6","#22c55e","#f59e0b","#ef4444","#14b8a6","#8b5cf6","#eab308","#06b6d4"];
@@ -690,7 +682,6 @@ function drawPie(){
   }).join("<br/>");
   $("#pieLegend").innerHTML = legend || "Sem dados.";
 }
-
 function setTargetsFromCategory(){
   const rows = computeRows();
   const catVals = byCategory(state.items);
@@ -968,7 +959,6 @@ document.getElementById("fiCalc").onclick = ()=>{
   ctx.stroke();
 };
 
-
 // ---------- Sync (GitHub Gist) ----------
 const SYNC_KEY = "portfolio_sync_v1_5_5";
 function loadSync(){ try{ return JSON.parse(localStorage.getItem(SYNC_KEY)) || {auto:false}; }catch(e){ return {auto:false}; } }
@@ -1121,38 +1111,27 @@ document.getElementById("btnPull").onclick = pullSync;
 document.getElementById("btnPush").onclick = pushSync;
 document.getElementById("autoSync").onchange = (e)=>{ syncCfg.auto = e.target.checked; saveSync(syncCfg); };
 
-function initSyncUI(){ applySyncUI(); if(syncCfg.auto && syncCfg.token && syncCfg.gistId){ pullSync(); } }
-
-// ---------- Init ----------
+// ---------- Init & bindings ----------
 function renderAll(){
   renderPortfolio();
   renderAllocation();
   save();
 }
 
-function setTargetsFromCategory(){
-  const rows = computeRows();
-  const catVals = byCategory(state.items);
-  state.items.forEach((it, idx)=>{
-    const catTarget = state.categoryTargets[it.cat]||0;
-    const catTotalVal = Object.keys(catVals).includes(it.cat) ? catVals[it.cat] : 0;
-    const myVal = rows[idx].nowBase;
-    const shareInCat = catTotalVal>0 ? (myVal/catTotalVal) : 0;
-    it.target = +(catTarget * shareInCat).toFixed(2);
-  });
-  save();
-}
-
 async function init(){
+  // alvos por categoria ao arrancar
   setTargetsFromCategory();
   renderAll();
+  // atualiza FX de arranque
   updateFx();
+  // sugestão no painel
   setStatus("Pronto. Clica em “Atualizar automaticamente (Crypto + ETFs JustETF + Ações/REIT/Ouro)”.", "ok");
   recomputeOrders();
 }
-init(); initSyncUI();
-switchTab("rebalance");
+init();
 
+// tabs: arranque default portfolio
+switchTab("portfolio");
 document.getElementById("btnLive").onclick = updateLivePrices;
 document.getElementById("btnFx").onclick = updateFx;
 </script>
