@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Gestor de Portefólio – Pro v1.5.5 (Sync)</title>
+  <style>
+    :root{
+      --bg:#0b0f17; --panel:#121826; --card:#161f31; --muted:#a7b0be; --text:#e6edf3;
+      --accent:#3b82f6; --good:#22c55e; --bad:#ef4444; --warn:#f59e0b; --border:#22314a;
+    }
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto}
+    header{position:sticky;top:0;background:#0c1320cc;backdrop-filter:blur(6px);border-bottom:1px solid var(--border);z-index:10}
+    .wrap{max-width:1200px;margin:auto;padding:12px 16px;display:flex;gap:12px;align-items:center;justify-content:space-between}
+    h1{font-size:18px;margin:0} .muted{color:var(--muted)} .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    main{max-width:1200px;margin:20px auto;padding:0 16px;display:grid;gap:16px}
+    .tabs{display:flex;gap:8px;flex-wrap:wrap}
+    .tab{padding:8px 12px;border:1px solid var(--border);border-radius:10px;background:var(--panel);cursor:pointer}
+    .tab.active{background:var(--accent);border-color:transparent;color:white}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:14px}
+    input,select,button,textarea{background:#0e1626;color:var(--text);border:1px solid var(--border);border-radius:10px;padding:8px}
+    input[type="number"]{width:120px} button{cursor:pointer}
+    table{width:100%;border-collapse:collapse} th,td{padding:8px;border-bottom:1px solid var(--border);text-align:right}
+    th:first-child,td:first-child{text-align:left}
+    .kpi{padding:8px 12px;border-radius:999px;background:#0e1626;border:1px solid var(--border);display:inline-flex;align-items:center;gap:6px}
+    .pill{padding:6px 10px;border-radius:999px;background:#0e1626;border:1px solid var(--border)}
+    .good{color:var(--good)} .bad{color:var(--bad)} .warn{color:var(--warn)}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+    @media(max-width:1000px){.grid2,.grid3{grid-template-columns:1fr} th:nth-child(3),td:nth-child(3){display:none} }
+    canvas{max-width:100%}
+    .status{margin-top:8px;padding:8px;border:1px dashed var(--border);border-radius:10px;background:#0e1626;white-space:pre-wrap}
+    .ok{color:var(--good)} .warnTxt{color:var(--warn)}
+    .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace}
+    .mutedlink{color:#9fb0c8;text-decoration:underline;cursor:pointer}
+    .note{font-size:12px;color:var(--muted)}
+  </style>
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#0b0f17">
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div>
+      <h1>Gestor de Portefólio – Pro v1.5.5</h1>
+      <div class="muted small">Rebalanceamento robusto e interativo. PPR e Cash fora do rebalance.</div>
+    </div>
+    <div class="row">
+      <span class="small">Moeda base</span>
+      <select id="base">
+        <option>EUR</option><option>USD</option>
+      </select>
+      <span class="small">Taxa EUR→USD</span>
+      <input id="fx" type="number" step="0.0001" value="1.1000" title="USD por 1 EUR"/>
+      <button id="saveTop">Guardar</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="tabs">
+    <div class="tab active" data-tab="portfolio">Portefólio</div>
+    <div class="tab" data-tab="rebalance">Rebalancear</div>
+    <div class="tab" data-tab="allocation">Alocação & Pizza</div>
+    <div class="tab" data-tab="fire">FIRE</div>
+    <div class="tab" data-tab="settings">Definições & Import/Export</div>
+  </div>
+
+  <!-- PORTFOLIO TAB -->
+  <section id="portfolio" class="card">
+    <div class="grid2">
+      <div>
+        <div class="row">
+          <div class="kpi">Total atual (inclui PPR): <b id="kTotal">—</b></div>
+          <div class="kpi">P/L total (exclui PPR): <span id="kPL">—</span></div>
+          <div class="kpi">Desvio médio: <b id="kDrift">—</b></div>
+        </div>
+      </div>
+      <div>
+        <div class="row"><b>Adicionar ativo</b></div>
+        <div class="row" style="margin-top:8px;flex-wrap:wrap">
+          <input id="nName" placeholder="Nome" class="grow"/>
+          <input id="nTicker" placeholder="Ticker"/>
+          <input id="nISIN" placeholder="ISIN (opcional p/ ETF)"/>
+          <select id="nCat"><option>ETF</option><option>Ação</option><option>REIT</option><option>Crypto</option><option>Ouro</option><option>PPR</option><option>Cash</option><option>Outro</option></select>
+          <select id="nCcy"><option>EUR</option><option>USD</option><option>GBP</option></select>
+          <input id="nUnits" type="number" placeholder="Unidades" step="0.000001"/>
+          <input id="nBuy" type="number" placeholder="Preço compra" step="0.0001"/>
+          <input id="nNow" type="number" placeholder="Preço atual" step="0.0001"/>
+          <input id="nTarget" type="number" placeholder="% target" step="0.01" style="width:110px"/>
+          <button id="btnAdd">+ Adicionar</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="overflow:auto;margin-top:10px">
+      <table id="tbl">
+        <thead>
+          <tr>
+            <th>Nome</th><th>Ticker</th><th>ISIN</th><th>Categoria</th><th>Moeda</th>
+            <th>Unidades</th><th>Preço compra</th><th>Preço atual</th>
+            <th>Investido</th><th>Valor atual</th><th>P/L</th><th>Peso %</th><th>Target %</th><th>Drift %</th><th>Ações</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+        <tfoot>
+          <tr>
+            <td colspan="8">Totais</td>
+            <td id="tInvest">—</td>
+            <td id="tNow">—</td>
+            <td id="tPL">—</td>
+            <td>100%</td>
+            <td id="tTarget">—</td>
+            <td id="tDrift">—</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </section>
+
+  <!-- REBALANCE TAB -->
+  <section id="rebalance" class="card" style="display:none">
+    <div class="grid2">
+      <div>
+        <b>Parâmetros de Rebalanceamento</b>
+        <div class="row" style="margin-top:8px;flex-wrap:wrap">
+          <label>Cash disponível (<span id="cashLbl">EUR</span>) <input id="cash" type="number" step="0.01" placeholder="0"/></label>
+          <label class="row"><input id="useSells" type="checkbox" checked/> usar vendas para financiar compras</label>
+          <label>Min. ordem (<span id="minLbl">EUR</span>) <input id="minOrder" type="number" step="1" value="25"/></label>
+          <label>Threshold de drift (%) <input id="thresh" type="number" step="0.1" value="0.5"/></label>
+          <button id="btnRebalance">Gerar ordens</button>
+        </div>
+        <div class="note">Targets usam os valores na coluna “Target %”. PPR e Cash ficam fora do cálculo.</div>
+        <div class="note" id="noteSum"></div>
+      </div>
+      <div>
+        <b>Ordens sugeridas</b>
+        <div id="orders" class="status small mono" style="min-height:120px">—</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ALLOCATION TAB -->
+  <section id="allocation" class="card" style="display:none">
+    <div class="grid2">
+      <div>
+        <b>Alocação por Categoria (targets)</b>
+        <div id="allocCtrls" class="row" style="margin-top:8px;gap:12px;flex-direction:column;align-items:stretch"></div>
+        <div class="small muted">Dica: ajusta os sliders. Os targets dos ativos nessa categoria atualizam automaticamente.</div>
+      </div>
+      <div>
+        <b>Pizza da Carteira (atual vs target)</b>
+        <canvas id="pie" width="400" height="400"></canvas>
+        <div class="small muted" id="pieLegend"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FIRE TAB -->
+  <section id="fire" class="card" style="display:none">
+    <div class="grid3">
+      <div>
+        <b>Parâmetros</b>
+        <div class="row" style="margin-top:8px;flex-direction:column;align-items:flex-start;gap:10px">
+          <label>Despesas anuais (€): <input id="fiExp" type="number" value="24000"/></label>
+          <label>Taxa retirada (%): <input id="fiWR" type="number" value="4.0" step="0.1"/></label>
+          <label>Inflação (%): <input id="fiInf" type="number" value="2.0" step="0.1"/></label>
+          <label>Contribuição mensal (€): <input id="fiContrib" type="number" value="200"/></label>
+          <label>Retorno anual esperado (%): <input id="fiRet" type="number" value="7.0" step="0.1"/></label>
+          <label>Idade atual: <input id="fiAge" type="number" value="39"/></label>
+          <label>Idade alvo reforma: <input id="fiTargetAge" type="number" value="55"/></label>
+          <button id="fiCalc">Calcular</button>
+        </div>
+      </div>
+      <div>
+        <b>Resultados</b>
+        <div id="fiOut" class="card" style="margin-top:8px"></div>
+      </div>
+      <div>
+        <b>Evolução (anual)</b>
+        <canvas id="fiChart" width="420" height="240"></canvas>
+        <div class="legend">
+          <span class="box" style="background:#3b82f6"></span> <span class="small">Linha azul = <b>Valor projetado da carteira</b></span>
+          <span class="box" style="background:#22c55e"></span> <span class="small">Linha verde = <b>Alvo FIRE ajustado à inflação</b></span>
+        </div>
+      </div>
+    </div>
+    <div class="small muted" style="margin-top:8px">Nota: a regra dos 4% é referência histórica. Ajusta conforme tolerância a risco e composição da carteira.</div>
+  </section>
+
+  <!-- SETTINGS TAB -->
+  <section id="settings" class="card" style="display:none">
+    <div class="grid2">
+      <div>
+        <b>Moeda & Câmbios</b>
+        <div class="row" style="margin-top:8px">
+          <span>Base</span><select id="sBase"><option>EUR</option><option>USD</option></select>
+          <span>EUR→USD</span><input id="sFx" type="number" step="0.0001"/>
+          <button id="applyCurrency">Aplicar</button>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <button id="btnFx">Atualizar câmbio agora</button>
+        </div>
+        <hr style="border-color:var(--border);opacity:.3;margin:14px 0"/>
+        <b>Preços</b>
+        <div class="row" style="margin-top:8px;gap:8px;flex-wrap:wrap">
+          <button id="btnLive">Atualizar automaticamente (Crypto + ETFs JustETF + Ações/REIT/Ouro)</button>
+          <span class="small muted">ETFs: JustETF (por ISIN automático) → Yahoo → Google → Stooq.</span>
+        </div>
+        <div id="liveStatus" class="status small mono">Sem atualizações ainda.</div>
+        <hr style="border-color:var(--border);opacity:.3;margin:14px 0"/>
+        <b>Importar / Exportar</b>
+        <div class="row" style="margin-top:8px">
+          <button id="exportJson">Exportar JSON</button>
+          <input id="importJson" type="file" accept=".json"/>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <button id="resetAll" class="warn">Repor predefinições</button>
+        </div>
+      
+        <hr style="border-color:var(--border);opacity:.3;margin:14px 0"/>
+        <b>Sincronização (GitHub Gist)</b>
+        <div class="row" style="margin-top:8px;gap:8px;flex-wrap:wrap">
+          <input id="ghToken" type="password" placeholder="GitHub token (scope: gist)"/>
+          <input id="gistId" placeholder="Gist ID (opcional p/ ligar)"/>
+          <input id="syncPass" type="password" placeholder="Chave de cifragem (opcional)"/>
+        </div>
+        <div class="row" style="margin-top:8px;gap:8px;flex-wrap:wrap">
+          <button id="btnCreateGist">Criar Gist novo</button>
+          <button id="btnConnect">Ligar</button>
+          <button id="btnPull">Sincronizar agora (buscar)</button>
+          <button id="btnPush">Guardar na nuvem</button>
+          <label class="row"><input type="checkbox" id="autoSync"/> Auto-sync ao abrir</label>
+        </div>
+        <div id="syncStatus" class="status small mono">Sincronização inativa.</div>
+</div>
+      <div>
+        <b>Ajuda rápida</b>
+        <ul class="small">
+          <li>Clica no <b>nome</b> do ETF para abrir o perfil no <b>JustETF</b> (usa ISIN se existir, senão abre a pesquisa do JustETF).</li>
+          <li>FX EUR→USD atualiza ao abrir e no botão “Atualizar câmbio agora”.</li>
+          <li>PPR e Cash ficam fora do rebalance e do P/L. Alocação liga categoria ⇄ targets por ativo.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+// ---------- Data Model ----------
+const LS_KEY = "portfolio_pro_v1_5_5_sync";
+const defaults = {
+  base: "EUR",
+  fx: 1.10,
+  items: [
+    {name:"Bitcoin", ticker:"BTC", cat:"Crypto", ccy:"EUR", units:0.0075, buy:100000, now:100000, target:0},
+    {name:"Ethereum", ticker:"ETH", cat:"Crypto", ccy:"EUR", units:0.0780, buy:3200, now:3200, target:0},
+    {name:"Vanguard S&P 500 (VUAA)", ticker:"VUAA.DE", isin:"IE00BFMXXD54", cat:"ETF", ccy:"EUR", units:14, buy:105.47, now:105.47, target:0},
+    {name:"iShares Core MSCI World (EUNL)", ticker:"EUNL.DE", isin:"IE00B4L5Y983", cat:"ETF", ccy:"EUR", units:2, buy:104.26, now:104.26, target:0},
+    {name:"Vanguard FTSE All-World (VWCE)", ticker:"VWCE.DE", isin:"IE00BK5BQT80", cat:"ETF", ccy:"EUR", units:2, buy:135.14, now:135.14, target:0},
+    {name:"iShares MSCI Europe (IMAE)", ticker:"IMAE.NL", isin:"IE00B4K48X80", cat:"ETF", ccy:"EUR", units:3, buy:85.83, now:85.83, target:0},
+    {name:"Euro Stoxx 50 (XESC)", ticker:"XESC.DE", isin:"LU0380865021", cat:"ETF", ccy:"EUR", units:3, buy:92.77, now:92.77, target:0},
+    {name:"S&P 500 Tech (QDVE)", ticker:"QDVE.DE", isin:"IE00B3WJKG14", cat:"ETF", ccy:"EUR", units:20, buy:33.64, now:33.64, target:0},
+    {name:"Xetra-Gold", ticker:"4GLD.DE", isin:"", cat:"Ouro", ccy:"EUR", units:3, buy:92.97, now:92.97, target:0},
+    {name:"Alphabet", ticker:"GOOGL", isin:"", cat:"Ação", ccy:"USD", units:1, buy:199.79, now:199.79, target:0},
+    {name:"Amazon", ticker:"AMZN", isin:"", cat:"Ação", ccy:"USD", units:2, buy:221.69, now:221.69, target:0},
+    {name:"Shell", ticker:"SHEL.L", isin:"", cat:"Ação", ccy:"GBP", units:1, buy:30.76, now:30.76, target:0},
+    {name:"Realty Income", ticker:"O", isin:"", cat:"REIT", ccy:"USD", units:11, buy:57.48, now:57.48, target:0},
+    {name:"VICI Properties", ticker:"VICI", isin:"", cat:"REIT", ccy:"USD", units:3, buy:32.90, now:32.90, target:0},
+    {name:"PPR (Save & Grow)", ticker:"PPR", isin:"", cat:"PPR", ccy:"EUR", units:1, buy:75.00, now:75.00, target:0},
+    {name:"Conta à ordem", ticker:"", isin:"", cat:"Cash", ccy:"EUR", units:1, buy:0, now:0, target:0}
+  ],
+  categoryTargets: { "ETF":40, "Ação":10, "Crypto":35, "Ouro":5, "REIT":5, "PPR":5, "Cash":0, "Outro":0 }
+};
+
+function load(){ try{ return JSON.parse(localStorage.getItem(LS_KEY)) || defaults; } catch(e){ return defaults; } }
+function save(){ localStorage.setItem(LS_KEY, JSON.stringify(state)); }
+
+let state = load();
+
+// ---------- Helpers ----------
+function eurToUsd(eur, fx){ return eur * fx; }
+function usdToEur(usd, fx){ return usd / fx; }
+function gbpToEur(gbp){ return gbp * 1.18; } // aprox estática
+function gbpToUsd(gbp, fx){ return gbpToEur(gbp) * state.fx; }
+
+function toBase(value, ccy){
+  if (state.base === ccy) return value;
+  if (state.base === "EUR" && ccy === "USD") return usdToEur(value, state.fx);
+  if (state.base === "USD" && ccy === "EUR") return eurToUsd(value, state.fx);
+  if (ccy === "GBP") {
+    return state.base === "EUR" ? gbpToEur(value) : gbpToUsd(value, state.fx);
+  }
+  return value;
+}
+function convertFromBase(value, ccy){
+  if (state.base === ccy) return value;
+  if (state.base === "EUR" && ccy === "USD") return eurToUsd(value, state.fx);
+  if (state.base === "USD" && ccy === "EUR") return usdToEur(value, state.fx);
+  if (ccy === "GBP" && state.base === "EUR") return value / 1.18;
+  if (ccy === "GBP" && state.base === "USD") return (value / 1.18) / state.fx;
+  return value;
+}
+
+function byCategory(items){
+  const agg = {};
+  items.forEach(it=>{
+    const valBase = toBase(it.now*it.units, it.ccy);
+    agg[it.cat] = (agg[it.cat]||0) + valBase;
+  });
+  return agg;
+}
+
+// ---------- Networking ----------
+async function safeFetch(url){
+  try{ const r = await fetch(url, {cache:"no-store"}); if(r.ok) return await r.text(); }catch(e){}
+  try{ const r = await fetch("https://r.jina.ai/http/"+url.replace(/^https?:\/\//,""), {cache:"no-store"}); if(r.ok) return await r.text(); }catch(e){}
+  try{ const r = await fetch("https://api.allorigins.win/raw?url="+encodeURIComponent(url), {cache:"no-store"}); if(r.ok) return await r.text(); }catch(e){}
+  try{ const r = await fetch("https://cors.isomorphic-git.org/"+url, {cache:"no-store"}); if(r.ok) return await r.text(); }catch(e){}
+  throw new Error("Falha ao obter: "+url);
+}
+
+// ---------- Providers ----------
+// Yahoo
+async function fetchYahoo(symbols){
+  if(!symbols.length) return [];
+  const url = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${encodeURIComponent(symbols.join(","))}`;
+  const txt = await safeFetch(url);
+  try{
+    const j = JSON.parse(txt);
+    return (j.quoteResponse && j.quoteResponse.result) ? j.quoteResponse.result : [];
+  }catch(e){ return []; }
+}
+// Google Finance
+function googleQuoteUrls(ticker){
+  const urls = [];
+  const up = (ticker||"").toUpperCase();
+  if(up.includes(".")){
+    const [base, suf] = up.split(".");
+    if(suf === "DE"){ urls.push(`https://www.google.com/finance/quote/${base}:ETR`, `https://www.google.com/finance/quote/${base}:FRA`); }
+    else if (suf === "L"){ urls.push(`https://www.google.com/finance/quote/${base}:LON`); }
+    else if (suf === "NL"){ urls.push(`https://www.google.com/finance/quote/${base}:AMS`); }
+    else if (suf === "US"){ urls.push(`https://www.google.com/finance/quote/${base}:NYSE`, `https://www.google.com/finance/quote/${base}:NASDAQ`); }
+    else { urls.push(`https://www.google.com/finance/quote/${base}:${suf}`); }
+  } else {
+    urls.push(`https://www.google.com/finance/quote/${up}:NASDAQ`, `https://www.google.com/finance/quote/${up}:NYSE`);
+  }
+  urls.push(`https://www.google.com/search?q=${encodeURIComponent(up+' site:google.com/finance')}`);
+  return urls;
+}
+function parseGooglePrice(html){
+  const m = html.match(/class="YMlKec fxKbKc">([^<]+)<\/div>/);
+  if(!m) return null;
+  let s = m[1].trim(); let ccy="EUR";
+  if(s.includes("€")) ccy="EUR"; else if(s.includes("$")) ccy="USD"; else if(s.includes("£")) ccy="GBP";
+  s = s.replace(/[€$£\s]/g,"");
+  if((s.match(/,/g)||[]).length === 1 && (s.match(/\./g)||[]).length===0){ s = s.replace(",", "."); }
+  else if ((s.match(/,/g)||[]).length>1 && s.includes(".")){ s = s.replace(/,/g,""); }
+  else if ((s.match(/\./g)||[]).length>1 && s.includes(",")){ s = s.replace(/\./g,"").replace(",", "."); }
+  const price = parseFloat(s);
+  if(isNaN(price)) return null;
+  return {price, ccy};
+}
+// Stooq
+async function fetchStooq(ticker){
+  const t = (ticker||"").toLowerCase();
+  const url = `https://stooq.com/q/l/?s=${encodeURIComponent(t)}&i=d`;
+  try{
+    const txt = await safeFetch(url);
+    const lines = txt.trim().split(/\r?\n/);
+    if(lines.length>=2){
+      const parts = lines[1].split(",");
+      const close = parseFloat(parts[6]);
+      if(!isNaN(close)) return {price: close, ccy: "EUR"};
+    }
+  }catch(e){}
+  return null;
+}
+// CoinGecko
+const cgMap = { "BTC":"bitcoin","ETH":"ethereum","SOL":"solana","ADA":"cardano","XRP":"ripple","LINK":"chainlink","DOT":"polkadot","PENDLE":"pendle","ENA":"ethena" };
+async function fetchCoinGecko(ids){
+  if(!ids.length) return {};
+  const url = `https://api.coingecko.com/api/v3/simple/price?ids=${ids.join(",")}&vs_currencies=eur,usd`;
+  const txt = await safeFetch(url);
+  try{ return JSON.parse(txt); }catch(e){ return {}; }
+}
+// FX
+async function fetchFxEURUSD(){
+  try{
+    const txt = await safeFetch("https://api.frankfurter.app/latest?from=EUR&to=USD");
+    const j = JSON.parse(txt);
+    if(j && j.rates && j.rates.USD){ return j.rates.USD; }
+  }catch(e){}
+  try{
+    const txt = await safeFetch("https://api.exchangerate.host/latest?base=EUR&symbols=USD");
+    const j = JSON.parse(txt);
+    if(j && j.rates && j.rates.USD){ return j.rates.USD; }
+  }catch(e){}
+  return null;
+}
+
+// JustETF helpers (para atualização de ETFs pelo ISIN)
+function looksLikeISIN(s){ return /^[A-Z]{2}[A-Z0-9]{9}[0-9]$/.test((s||"").trim()); }
+async function resolveISINFromJustETF(query){
+  const url = `https://www.justetf.com/en/find-etf.html?query=${encodeURIComponent(query)}`;
+  try{
+    const html = await safeFetch(url);
+    const matches = Array.from(html.matchAll(/etf-profile\.html\?isin=([A-Z0-9]{12})/g)).map(m=>m[1]);
+    return matches.length ? matches[0] : null;
+  }catch(e){ return null; }
+}
+async function fetchJustETFPriceByISIN(isin){
+  const url = `https://www.justetf.com/en/etf-profile.html?isin=${encodeURIComponent(isin)}`;
+  try{
+    const html = await safeFetch(url);
+    let m = html.match(/"price"\s*:\s*"([\d\.,]+)"/);
+    let ccyMatch = html.match(/"priceCurrency"\s*:\s*"(EUR|USD|GBP)"/);
+    if(m){
+      let s = m[1];
+      if((s.match(/,/g)||[]).length === 1 && (s.match(/\./g)||[]).length===0){ s = s.replace(",", "."); }
+      else if ((s.match(/,/g)||[]).length>1 && s.includes(".")){ s = s.replace(/,/g,""); }
+      else if ((s.match(/\./g)||[]).length>1 && s.includes(",")){ s = s.replace(/\./g,"").replace(",", "."); }
+      const price = parseFloat(s);
+      if(!isNaN(price)) return {price, ccy: ccyMatch? ccyMatch[1] : "EUR", url};
+    }
+    m = html.match(/Price[^0-9]*([\d\.,]+)\s*(EUR|USD|GBP)/i);
+    if(m){
+      let s = m[1];
+      if((s.match(/,/g)||[]).length === 1 && (s.match(/\./g)||[]).length===0){ s = s.replace(",", "."); }
+      else if ((s.match(/,/g)||[]).length>1 && s.includes(".")){ s = s.replace(/,/g,""); }
+      else if ((s.match(/\./g)||[]).length>1 && s.includes(",")){ s = s.replace(/\./g,"").replace(",", "."); }
+      const price = parseFloat(s);
+      const ccy = m[2].toUpperCase();
+      if(!isNaN(price)) return {price, ccy, url};
+    }
+  }catch(e){}
+  return null;
+}
+
+// ---------- UI Binding ----------
+const $ = sel => document.querySelector(sel);
+const $$ = sel => document.querySelectorAll(sel);
+
+function switchTab(tab){
+  $$(".tab").forEach(t=> t.classList.toggle("active", t.dataset.tab===tab));
+  $$("#portfolio, #rebalance, #allocation, #fire, #settings").forEach(s=> s.style.display="none");
+  $("#"+tab).style.display="block";
+}
+$$(".tab").forEach(t=> t.onclick = ()=> switchTab(t.dataset.tab));
+
+// Top controls
+$("#base").value = state.base;
+$("#fx").value = state.fx.toFixed(4);
+$("#saveTop").onclick = ()=>{ state.base = $("#base").value; state.fx = +$("#fx").value || 1.10; $("#cashLbl").textContent = state.base; $("#minLbl").textContent = state.base; save(); renderAll(); recomputeOrders(); };
+
+// Settings espelho
+document.getElementById("sBase").value = state.base;
+document.getElementById("sFx").value = state.fx.toFixed(4);
+document.getElementById("applyCurrency").onclick = ()=>{ state.base = document.getElementById("sBase").value; state.fx = +document.getElementById("sFx").value||1.10; $("#base").value = state.base; $("#fx").value = state.fx.toFixed(4); $("#cashLbl").textContent = state.base; $("#minLbl").textContent = state.base; save(); renderAll(); recomputeOrders(); };
+
+// Import/Export/Reset
+$("#exportJson").onclick = ()=>{
+  const a = document.createElement("a");
+  a.href = "data:text/json;charset=utf-8,"+encodeURIComponent(JSON.stringify(state,null,2));
+  a.download = "portfolio_pro.json"; a.click();
+};
+$("#importJson").onchange = e=>{
+  const f = e.target.files[0]; if(!f) return;
+  const reader = new FileReader();
+  reader.onload = ()=>{ try{ state = JSON.parse(reader.result); save();
+    $("#base").value = state.base; $("#fx").value = (+state.fx||1.1).toFixed(4);
+    $("#cashLbl").textContent = state.base; $("#minLbl").textContent = state.base;
+    renderAll(); recomputeOrders();
+  } catch(err){ setStatus("JSON inválido ao importar.", "warn"); } };
+  reader.readAsText(f);
+};
+$("#resetAll").onclick = ()=>{
+  if(confirm("Repor predefinições?")){ state = JSON.parse(JSON.stringify(defaults)); save();
+    $("#base").value = state.base; $("#fx").value = state.fx.toFixed(4);
+    $("#cashLbl").textContent = state.base; $("#minLbl").textContent = state.base;
+    renderAll(); recomputeOrders();
+  }
+};
+
+// ---------- Add asset ----------
+document.getElementById("btnAdd").onclick = ()=>{
+  const it = {
+    name: document.getElementById("nName").value || "Novo ativo",
+    ticker: document.getElementById("nTicker").value || "",
+    isin: document.getElementById("nISIN").value || "",
+    cat: document.getElementById("nCat").value || "Outro",
+    ccy: document.getElementById("nCcy").value || state.base,
+    units: +(document.getElementById("nUnits").value||0),
+    buy: +(document.getElementById("nBuy").value||0),
+    now: +(document.getElementById("nNow").value||0),
+    target: +(document.getElementById("nTarget").value||0)
+  };
+  state.items.push(it); save(); renderAll(); recomputeOrders();
+  ["nName","nTicker","nISIN","nUnits","nBuy","nNow","nTarget"].forEach(id=> document.getElementById(id).value="");
+};
+
+// ---------- Portfolio ----------
+function computeRows(){
+  let invested=0, total=0;
+  let investedExPPR=0, totalExPPR=0;
+  const rows = state.items.map((it, idx)=>{
+    const inv = it.buy * it.units;
+    const nowValCCY = it.now * it.units;
+    const invBase = toBase(inv, it.ccy);
+    const nowBase = toBase(nowValCCY, it.ccy);
+    invested += invBase; total += nowBase;
+    if(it.cat!=="PPR"){ investedExPPR += invBase; totalExPPR += nowBase; }
+    return { idx, ...it, invBase, nowBase };
+  });
+  rows.forEach(r=> r.weight = total? r.nowBase/total*100 : 0);
+  return Object.assign(rows, { invested, total, investedExPPR, totalExPPR });
+}
+
+// Open quote page
+function openQuote(idx){
+  const it = state.items[idx]; if(!it) return;
+  let url = null;
+  if(it.cat==="Crypto"){
+    const id = (it.ticker && cgMap[it.ticker.toUpperCase()]) || null;
+    url = id ? `https://www.coingecko.com/en/coins/${id}` : `https://www.google.com/search?q=${encodeURIComponent(it.ticker||it.name+' price')}`;
+  } else if (it.cat==="ETF"){
+    if (it.isin && /^[A-Z0-9]{12}$/.test(it.isin)) {
+      url = `https://www.justetf.com/en/etf-profile.html?isin=${encodeURIComponent(it.isin)}`;
+    } else {
+      const q = it.ticker || it.name;
+      url = `https://www.justetf.com/en/find-etf.html?query=${encodeURIComponent(q)}`;
+    }
+  } else {
+    const urls = googleQuoteUrls(it.ticker);
+    url = urls[0] || `https://www.google.com/finance/`;
+  }
+  window.open(url, "_blank");
+}
+
+function renderPortfolio(){
+  const tbody = $("#tbl tbody");
+  tbody.innerHTML = "";
+  const rows = computeRows();
+  rows.forEach(r=>{
+    const pl = r.nowBase - r.invBase;
+    const plPct = r.invBase ? (pl/r.invBase*100) : 0;
+    const drift = (r.weight - (r.target||0));
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><span class="mutedlink" title="Abrir cotação" onclick="openQuote(${r.idx})">${r.name}</span><br/>
+          <input data-k="name" data-i="${r.idx}" value="${r.name}"/></td>
+      <td><input data-k="ticker" data-i="${r.idx}" value="${r.ticker}"/></td>
+      <td><input data-k="isin" data-i="${r.idx}" value="${r.isin||''}" placeholder="ISIN"/></td>
+      <td>
+        <select data-k="cat" data-i="${r.idx}">
+          ${["ETF","Ação","REIT","Crypto","Ouro","PPR","Cash","Outro"].map(c=>`<option ${c===r.cat?"selected":""}>${c}</option>`).join("")}
+        </select>
+      </td>
+      <td>
+        <select data-k="ccy" data-i="${r.idx}">
+          ${["EUR","USD","GBP"].map(c=>`<option ${c===r.ccy?"selected":""}>${c}</option>`).join("")}
+        </select>
+      </td>
+      <td><input data-k="units" data-i="${r.idx}" type="number" step="0.000001" value="${r.units}"/></td>
+      <td><input data-k="buy" data-i="${r.idx}" type="number" step="0.0001" value="${r.buy}"/></td>
+      <td><input data-k="now" data-i="${r.idx}" type="number" step="0.0001" value="${r.now}"/></td>
+      <td>${state.base} ${r.invBase.toLocaleString(undefined,{maximumFractionDigits:2})}</td>
+      <td>${state.base} ${r.nowBase.toLocaleString(undefined,{maximumFractionDigits:2})}</td>
+      <td class="${pl>=0?'good':'bad'}">${state.base} ${pl.toLocaleString(undefined,{maximumFractionDigits:2})} (${plPct.toFixed(2)}%)</td>
+      <td>${r.weight.toFixed(2)}%</td>
+      <td><input data-k="target" data-i="${r.idx}" type="number" step="0.01" value="${r.target||0}"/></td>
+      <td class="${drift>=0?'good':'bad'}">${drift.toFixed(2)}%</td>
+      <td><button data-act="dup" data-i="${r.idx}">Duplicar</button> <button data-act="del" data-i="${r.idx}" class="bad">Apagar</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+  $("#tInvest").textContent = `${state.base} ${rows.invested.toLocaleString(undefined,{maximumFractionDigits:2})}`;
+  $("#tNow").textContent = `${state.base} ${rows.total.toLocaleString(undefined,{maximumFractionDigits:2})}`;
+  const tPL = rows.totalExPPR - rows.investedExPPR;
+  const tPLpct = rows.investedExPPR ? (tPL/rows.investedExPPR*100) : 0;
+  $("#tPL").innerHTML = `${state.base} ${tPL.toLocaleString(undefined,{maximumFractionDigits:2})} (${tPLpct.toFixed(2)}%)`;
+  $("#tTarget").textContent = `${state.items.reduce((a,b)=> a + (+b.target||0), 0).toFixed(2)}%`;
+  const avgDrift = rows.length? rows.reduce((a,b)=> a + Math.abs((b.weight-(+b.target||0))),0)/rows.length : 0;
+  $("#tDrift").textContent = `${avgDrift.toFixed(2)}%`;
+
+  $("#kTotal").textContent = `${state.base} ${rows.total.toLocaleString(undefined,{maximumFractionDigits:0})}`;
+  $("#kPL").innerHTML = `${tPL>=0?'<span class="good">▲':'<span class="bad">▼'} ${state.base} ${tPL.toLocaleString(undefined,{maximumFractionDigits:0})} (${tPLpct.toFixed(1)}%)</span>`;
+  $("#kDrift").textContent = `${avgDrift.toFixed(2)}%`;
+  $("#cashLbl").textContent = state.base; $("#minLbl").textContent = state.base;
+
+  // Live recompute ao editar target
+  $("#tbl tbody").querySelectorAll("input[data-k='target']").forEach(el=>{
+    el.addEventListener("input", ()=>{
+      state.items[+el.dataset.i].target = +el.value || 0;
+      save(); recomputeOrders();
+    });
+  });
+}
+
+// Table delegation
+document.querySelector("#tbl tbody").addEventListener("change", (e)=>{
+  const el = e.target;
+  const i = +el.dataset.i, k = el.dataset.k;
+  if(Number.isInteger(i) && k && k!=="target"){
+    state.items[i][k] = el.type==="number" ? +el.value : el.value;
+    save(); renderAll(); recomputeOrders();
+  }
+});
+document.querySelector("#tbl tbody").addEventListener("click", (e)=>{
+  const btn = e.target.closest("button");
+  if(!btn) return;
+  const i = +btn.dataset.i; const act = btn.dataset.act;
+  if(!Number.isInteger(i)) return;
+  if(act==="del"){
+    state.items.splice(i,1); save(); renderAll(); recomputeOrders();
+  } else if (act==="dup"){
+    state.items.splice(i+1,0, JSON.parse(JSON.stringify(state.items[i]))); save(); renderAll(); recomputeOrders();
+  }
+});
+
+// ---------- Allocation ----------
+function renderAllocation(){
+  const wrap = $("#allocCtrls"); wrap.innerHTML = "";
+  const cats = new Set(Object.keys(state.categoryTargets));
+  state.items.forEach(it=> cats.add(it.cat));
+  const list = Array.from(cats);
+  const sum = list.reduce((a,c)=> a + (state.categoryTargets[c]||0), 0);
+  if (sum!==100){
+    if (sum>0){ list.forEach(c=> state.categoryTargets[c] = +( (state.categoryTargets[c]||0) * (100/sum) ).toFixed(2)); }
+  }
+  list.forEach(cat=>{
+    const target = state.categoryTargets[cat] ?? 0;
+    const row = document.createElement("div");
+    row.className = "row";
+    row.innerHTML = `
+      <div style="width:120px">${cat}</div>
+      <input type="range" min="0" max="100" step="1" value="${target}" data-cat="${cat}" style="flex:1"/>
+      <input type="number" step="0.1" value="${target}" data-cat="${cat}" style="width:100px"/>
+      <span class="muted small">%</span>
+    `;
+    wrap.appendChild(row);
+  });
+  const totalLine = document.createElement("div");
+  totalLine.className = "row";
+  totalLine.innerHTML = `<div class="pill">Total targets por categoria: <b id="catTotal">—</b></div>`;
+  wrap.appendChild(totalLine);
+
+  const inputs = wrap.querySelectorAll("input");
+  inputs.forEach(inp=> inp.oninput = ()=>{
+    const cat = inp.dataset.cat;
+    inputs.forEach(other=>{ if(other.dataset.cat===cat) other.value = inp.value; });
+    state.categoryTargets[cat] = +inp.value;
+    const keys = Object.keys(state.categoryTargets);
+    let sum = keys.reduce((a,c)=> a + (state.categoryTargets[c]||0), 0);
+    if (sum!==100){
+      const factor = 100/sum;
+      keys.forEach(c=> state.categoryTargets[c] = +( (state.categoryTargets[c]||0)*factor ).toFixed(2));
+      inputs.forEach(el=>{ el.value = state.categoryTargets[el.dataset.cat].toString(); });
+    }
+    setTargetsFromCategory();
+    save(); renderAll(); recomputeOrders();
+  });
+
+  $("#catTotal").textContent = Object.values(state.categoryTargets).reduce((a,b)=>a+(+b||0),0).toFixed(2) + "%";
+  drawPie();
+}
+
+function drawPie(){
+  const canvas = $("#pie"); const ctx = canvas.getContext("2d");
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  const rows = computeRows();
+  const cats = {};
+  rows.forEach(r=> cats[r.cat] = (cats[r.cat]||0) + r.nowBase;
+  );
+  const total = rows.total||1;
+  const targets = state.categoryTargets;
+  const colors = ["#3b82f6","#22c55e","#f59e0b","#ef4444","#14b8a6","#8b5cf6","#eab308","#06b6d4"];
+  let start = -Math.PI/2, idx=0;
+  Object.entries(cats).forEach(([cat,val])=>{
+    const frac = val/total; const end = start + frac*2*Math.PI;
+    ctx.beginPath(); ctx.moveTo(200,200); ctx.arc(200,200,180,start,end); ctx.closePath();
+    ctx.fillStyle = colors[idx%colors.length]; ctx.fill();
+    start = end; idx++;
+  });
+  const legend = Object.entries(cats).map(([cat,val],i)=>{
+    const w = (val/total*100).toFixed(1);
+    const t = (targets[cat]||0).toFixed(1);
+    return `<span style="display:inline-block;width:12px;height:12px;background:${colors[i%colors.length]};border-radius:3px;margin-right:6px"></span>${cat}: <b>${w}%</b> (target ${t}%)`;
+  }).join("<br/>");
+  $("#pieLegend").innerHTML = legend || "Sem dados.";
+}
+
+function setTargetsFromCategory(){
+  const rows = computeRows();
+  const catVals = byCategory(state.items);
+  state.items.forEach((it, idx)=>{
+    const catTarget = state.categoryTargets[it.cat]||0;
+    const catTotalVal = Object.keys(catVals).includes(it.cat) ? catVals[it.cat] : 0;
+    const myVal = rows[idx].nowBase;
+    const shareInCat = catTotalVal>0 ? (myVal/catTotalVal) : 0;
+    it.target = +(catTarget * shareInCat).toFixed(2);
+  });
+  save();
+}
+
+// ---------- Status ----------
+function setStatus(msg, type="info"){
+  const el = document.getElementById("liveStatus");
+  if(!el) return;
+  el.innerHTML = msg;
+  el.classList.remove("ok","warnTxt");
+  if(type==="ok") el.classList.add("ok");
+  if(type==="warn") el.classList.add("warnTxt");
+}
+
+// ---------- Live update (prices & fx) ----------
+async function updateFx(){
+  const fx = await fetchFxEURUSD();
+  if(fx){
+    state.fx = +fx;
+    document.getElementById("fx").value = state.fx.toFixed(4);
+    document.getElementById("sFx").value = state.fx.toFixed(4);
+    save();
+    setStatus(`FX atualizado: 1 EUR = ${state.fx.toFixed(4)} USD`, "ok");
+  } else {
+    setStatus("Não foi possível atualizar o FX agora. Mantida a taxa anterior.", "warn");
+  }
+}
+
+async function fetchETFPrice(it){
+  if(looksLikeISIN(it.isin)){
+    const je = await fetchJustETFPriceByISIN(it.isin);
+    if(je){ it.now = je.price; it.ccy = je.ccy || it.ccy; return {ok:true, via:`JustETF(${it.isin})`}; }
+  }
+  const q = it.ticker || it.name;
+  const found = await resolveISINFromJustETF(q);
+  if(found){
+    it.isin = found;
+    const je2 = await fetchJustETFPriceByISIN(found);
+    if(je2){ it.now = je2.price; it.ccy = je2.ccy || it.ccy; return {ok:true, via:`JustETF(${found})`}; }
+  }
+  try{
+    const res = await fetchYahoo([it.ticker]);
+    if(res && res[0] && res[0].regularMarketPrice){
+      it.now = res[0].regularMarketPrice;
+      if(res[0].currency && ["EUR","USD","GBP"].includes(res[0].currency)) it.ccy = res[0].currency;
+      return {ok:true, via:"Yahoo"};
+    }
+  }catch(e){}
+  const urls = googleQuoteUrls(it.ticker);
+  for(const url of urls){
+    try{ const html = await safeFetch(url); const p = parseGooglePrice(html); if(p){ it.now = p.price; it.ccy = p.ccy||it.ccy; return {ok:true, via:"Google"}; } }catch(e){}
+  }
+  const stq = await fetchStooq(it.ticker);
+  if(stq){ it.now = stq.price; it.ccy = stq.ccy||it.ccy; return {ok:true, via:"Stooq"}; }
+  return {ok:false};
+}
+
+async function updateLivePrices(){
+  setStatus("A atualizar preços…");
+  const notUpdated = [];
+  const updated = [];
+  const notes = [];
+
+  // Crypto
+  try{
+    const cryptoItems = state.items.filter(it=> it.cat==="Crypto");
+    const ids = Array.from(new Set(cryptoItems.map(it=> (it.ticker && cgMap[it.ticker.toUpperCase()]) ).filter(Boolean)));
+    const data = await fetchCoinGecko(ids);
+    for(const it of cryptoItems){
+      const id = {"BTC":"bitcoin","ETH":"ethereum","SOL":"solana","ADA":"cardano","XRP":"ripple","LINK":"chainlink","DOT":"polkadot","PENDLE":"pendle","ENA":"ethena"}[it.ticker.toUpperCase()];
+      const px = id && data[id] ? (state.base==="EUR"? data[id].eur : data[id].usd) : null;
+      if(px){ it.now = px; updated.push(it.ticker||it.name); notes.push(`${it.ticker||it.name}: CoinGecko`); } 
+      else { notUpdated.push(it.ticker||it.name); }
+    }
+  } catch(e){ notUpdated.push("CRYPTO:falha geral"); }
+
+  // ETFs via JustETF (auto ISIN), fallbacks
+  const etfs = state.items.filter(it=> it.cat==="ETF" && (it.ticker || it.isin));
+  for(const it of etfs){
+    const res = await fetchETFPrice(it);
+    if(res.ok){ updated.push(it.ticker||it.name); notes.push(`${it.ticker||it.name}: ${res.via}`); }
+    else { notUpdated.push(it.ticker||it.name); }
+  }
+
+  // Ações/REIT/Ouro
+  const others = state.items.filter(it=> ["Ação","REIT","Ouro"].includes(it.cat));
+  try{
+    const symbols = Array.from(new Set(others.map(it=> it.ticker).filter(Boolean)));
+    const res = await fetchYahoo(symbols);
+    const bySym = {}; res.forEach(q=> bySym[q.symbol] = q);
+    others.forEach(it=>{
+      const q = bySym[it.ticker];
+      if(q && q.regularMarketPrice){
+        it.now = q.regularMarketPrice;
+        if(q.currency && ["EUR","USD","GBP"].includes(q.currency)) it.ccy = q.currency;
+        updated.push(it.ticker); notes.push(`${it.ticker}: Yahoo`);
+        it._done = true;
+      }
+    });
+  }catch(e){}
+  for(const it of others.filter(x=> !x._done)){
+    let ok=false;
+    const urls = googleQuoteUrls(it.ticker);
+    for(const url of urls){
+      try{ const html = await safeFetch(url); const p = parseGooglePrice(html); if(p){ it.now = p.price; it.ccy = p.ccy||it.ccy; ok=true; notes.push(`${it.ticker}: Google`); break; } }catch(e){}
+    }
+    if(!ok){
+      const stq = await fetchStooq(it.ticker);
+      if(stq){ it.now = stq.price; it.ccy = stq.ccy||it.ccy; ok=true; notes.push(`${it.ticker}: Stooq`); }
+    }
+    if(ok) updated.push(it.ticker||it.name); else notUpdated.push(it.ticker||it.name);
+  }
+  others.forEach(it=> delete it._done);
+
+  save(); renderAll(); recomputeOrders();
+
+  const msg = `✔ Atualizados: ${updated.length} | ⚠ Não atualizados: ${notUpdated.length}
+${notes.length? "Fontes: "+notes.join(" · ") : ""}
+${notUpdated.length? "FALHOU: "+notUpdated.join(", ") : ""}`.trim();
+  setStatus(msg, notUpdated.length? "warn" : "ok");
+}
+
+// ---------- Rebalance Engine ----------
+function unitPrecision(cat){
+  if(cat==="Crypto") return 6;
+  if(cat==="ETF"||cat==="Ação"||cat==="REIT"||cat==="Ouro") return 3;
+  return 2;
+}
+function recomputeOrders(){
+  const rows = computeRows();
+  const base = state.base;
+  const thresh = (+document.getElementById("thresh").value)||0;
+  const minOrder = (+document.getElementById("minOrder").value)||0;
+  const cashAvail = (+document.getElementById("cash").value)||0;
+  const allowSells = document.getElementById("useSells").checked;
+
+  // targets e normalização
+  const sumT = state.items.filter(it=> !["PPR","Cash"].includes(it.cat)).reduce((a,it)=> a + (+it.target||0), 0);
+  const normFactor = sumT>0 ? (100/sumT) : 1;
+  const noteEl = document.getElementById("noteSum");
+  if(sumT!==100){
+    noteEl.innerHTML = `Alerta: soma dos targets = <b>${sumT.toFixed(2)}%</b>. A normalização automática está aplicada internamente (x${normFactor.toFixed(4)}).`;
+  } else {
+    noteEl.innerHTML = "";
+  }
+
+  // diffs por ativo
+  let diffs = [];
+  state.items.forEach((it, idx)=>{
+    if(["PPR","Cash"].includes(it.cat)) return;
+    const r = rows.find(x=> x.idx===idx);
+    const targetPct = (+it.target||0) * normFactor;
+    const desired = (rows.totalExPPR) * (targetPct/100);
+    const current = r.nowBase;
+    const drift = (current/rows.totalExPPR*100) - targetPct;
+    if(Math.abs(drift) < thresh) return;
+    const delta = desired - current;
+    if(Math.abs(delta) < minOrder) return;
+    diffs.push({idx, it, deltaBase: delta});
+  });
+
+  // separar compras e vendas
+  let buys = diffs.filter(d=> d.deltaBase>0);
+  let sells = diffs.filter(d=> d.deltaBase<0);
+  if(!allowSells){ sells = []; }
+
+  // fundos disponíveis
+  const totalBuy = buys.reduce((a,d)=> a + d.deltaBase, 0);
+  const totalSell = sells.reduce((a,d)=> a + Math.abs(d.deltaBase), 0);
+  let available = cashAvail + (allowSells? totalSell : 0);
+
+  if(totalBuy > available+1e-6 && totalBuy>0){
+    const scale = available/totalBuy;
+    buys.forEach(d=> d.deltaBase *= scale);
+  }
+
+  // construir linhas
+  function buildLine(side, d){
+    const price = state.items[d.idx].now || 0;
+    const ccy = state.items[d.idx].ccy;
+    const amtBase = Math.abs(d.deltaBase);
+    const amtCcy = convertFromBase(amtBase, ccy);
+    const units = price>0 ? +(amtCcy / price).toFixed(unitPrecision(state.items[d.idx].cat)) : 0;
+    const name = state.items[d.idx].name || state.items[d.idx].ticker || ("Ativo "+d.idx);
+    return `${side} ${units} ${state.items[d.idx].ticker||""} (${name}) ~ ${base} ${amtBase.toLocaleString(undefined,{maximumFractionDigits:2})}`;
+  }
+
+  const lines = [];
+  sells.forEach(d=> lines.push(buildLine("VENDER", d)));
+  buys.forEach(d=> lines.push(buildLine("COMPRAR", d)));
+  const spent = buys.reduce((a,d)=> a + Math.abs(d.deltaBase), 0);
+  const raised = sells.reduce((a,d)=> a + Math.abs(d.deltaBase), 0);
+  const netCash = cashAvail + raised - spent;
+
+  const summary = `Threshold: ${thresh}% | Min ordem: ${base} ${minOrder}
+Total vender: ${base} ${raised.toLocaleString(undefined,{maximumFractionDigits:2})} | Total comprar: ${base} ${spent.toLocaleString(undefined,{maximumFractionDigits:2})}
+Cash após ordens (estimado): ${base} ${netCash.toLocaleString(undefined,{maximumFractionDigits:2})}`;
+
+  document.getElementById("orders").textContent = (lines.length? lines.join("\n") : "Sem ordens — já está dentro do threshold.") + "\n\n" + summary;
+}
+
+// Bind controls Rebalance
+["cash","useSells","minOrder","thresh"].forEach(id=>{
+  const el = document.getElementById(id);
+  el.addEventListener("input", ()=> recomputeOrders());
+});
+document.getElementById("btnRebalance").onclick = recomputeOrders;
+
+// ---------- FIRE calc ----------
+document.getElementById("fiCalc").onclick = ()=>{
+  const exp = +document.getElementById("fiExp").value||0;
+  const wr = (+document.getElementById("fiWR").value||4)/100;
+  const inf = (+document.getElementById("fiInf").value||2)/100;
+  const contrib = +document.getElementById("fiContrib").value||0;
+  const ret = (+document.getElementById("fiRet").value||7)/100;
+  const age = +document.getElementById("fiAge").value||39;
+  const targAge = +document.getElementById("fiTargetAge").value||55;
+
+  const rows = computeRows();
+  const today = rows.total;
+  const targetToday = exp / wr;
+
+  const months = Math.max(12, (targAge - age)*12);
+  const r_m = Math.pow(1+ret,1/12)-1;
+  const i_m = Math.pow(1+inf,1/12)-1;
+
+  let v = today;
+  let target = targetToday;
+  const seriesV = [];
+  let hit = null;
+
+  for(let m=0;m<=months;m++){
+    if(v>=target && hit===null){ hit = m; }
+    if(m%12===0){ seriesV.push({v:v, t:target}); }
+    v = v*(1+r_m) + contrib;
+    target = target*(1+i_m);
+  }
+
+  const yearsToFI = hit!==null ? (hit/12) : null;
+  const fiAge = yearsToFI!==null ? (age + yearsToFI) : null;
+
+  document.getElementById("fiOut").innerHTML = `
+    <div class="row">
+      <div class="pill">Valor atual da carteira (inclui PPR): <b>${state.base} ${today.toLocaleString(undefined,{maximumFractionDigits:0})}</b></div>
+      <div class="pill">Alvo FIRE hoje (com ${(+document.getElementById("fiWR").value||4).toFixed(1)}%): <b>${state.base} ${targetToday.toLocaleString(undefined,{maximumFractionDigits:0})}</b></div>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <div class="kpi">Anos até FIRE: <b>${yearsToFI!==null? yearsToFI.toFixed(1):"— (não atinge no horizonte)"} </b></div>
+      <div class="kpi">Idade estimada: <b>${fiAge? fiAge.toFixed(1): "—"}</b></div>
+    </div>
+  `;
+
+  const cv = document.getElementById("fiChart"); const ctx = cv.getContext("2d");
+  ctx.clearRect(0,0,cv.width,cv.height);
+  const W=cv.width,H=cv.height; const pad=40;
+  const allVals = seriesV.flatMap(p=> [p.v,p.t]);
+  const maxV = Math.max(...allVals)*1.1;
+  ctx.strokeStyle="#345"; ctx.beginPath(); ctx.moveTo(pad,H-pad); ctx.lineTo(W-pad,H-pad); ctx.lineTo(W-pad,pad); ctx.stroke();
+  function x(i){ return pad + (W-2*pad)*(i/(seriesV.length-1||1)); }
+  function y(val){ return H-pad - (H-2*pad)*(val/maxV); }
+  ctx.strokeStyle="#3b82f6"; ctx.beginPath();
+  seriesV.forEach((p,i)=>{ const X=x(i), Y=y(p.v); if(i===0) ctx.moveTo(X,Y); else ctx.lineTo(X,Y); });
+  ctx.stroke();
+  ctx.strokeStyle="#22c55e"; ctx.beginPath();
+  seriesV.forEach((p,i)=>{ const X=x(i), Y=y(p.t); if(i===0) ctx.moveTo(X,Y); else ctx.lineTo(X,Y); });
+  ctx.stroke();
+};
+
+
+// ---------- Sync (GitHub Gist) ----------
+const SYNC_KEY = "portfolio_sync_v1_5_5";
+function loadSync(){ try{ return JSON.parse(localStorage.getItem(SYNC_KEY)) || {auto:false}; }catch(e){ return {auto:false}; } }
+function saveSync(cfg){ localStorage.setItem(SYNC_KEY, JSON.stringify(cfg)); }
+let syncCfg = loadSync();
+
+function setSyncStatus(msg, ok=false){
+  const el = document.getElementById("syncStatus");
+  if(!el) return;
+  el.textContent = msg;
+  el.classList.remove("ok","warnTxt");
+  el.classList.add(ok? "ok":"warnTxt");
+}
+
+function bufToB64(buf){
+  const bytes = new Uint8Array(buf);
+  let bin = ""; for(let i=0;i<bytes.length;i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+function b64ToBuf(b64){
+  const bin = atob(b64); const len = bin.length; const bytes = new Uint8Array(len);
+  for(let i=0;i<len;i++) bytes[i] = bin.charCodeAt(i);
+  return bytes.buffer;
+}
+async function deriveKey(pass, salt){
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey("raw", enc.encode(pass), "PBKDF2", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey({name:"PBKDF2", salt, iterations:100000, hash:"SHA-256"}, keyMaterial, {name:"AES-GCM", length:256}, false, ["encrypt","decrypt"]);
+}
+async function encryptState(obj, pass){
+  const enc = new TextEncoder();
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const key = await deriveKey(pass, salt);
+  const data = enc.encode(JSON.stringify(obj));
+  const ct = await crypto.subtle.encrypt({name:"AES-GCM", iv}, key, data);
+  return {v:1, alg:"AES-GCM", kdf:"PBKDF2", iv:bufToB64(iv), salt:bufToB64(salt), ct:bufToB64(ct)};
+}
+async function decryptState(payload, pass){
+  try{
+    const dec = new TextDecoder();
+    const iv = new Uint8Array(b64ToBuf(payload.iv));
+    const salt = new Uint8Array(b64ToBuf(payload.salt));
+    const key = await deriveKey(pass, salt);
+    const ct = b64ToBuf(payload.ct);
+    const plain = await crypto.subtle.decrypt({name:"AES-GCM", iv}, key, ct);
+    return JSON.parse(dec.decode(plain));
+  }catch(e){
+    throw new Error("Falha de desencriptação. Chave errada?");
+  }
+}
+
+function getSyncInputs(){
+  return {
+    token: (document.getElementById("ghToken").value||"").trim(),
+    gistId: (document.getElementById("gistId").value||"").trim(),
+    pass: (document.getElementById("syncPass").value||"")
+  };
+}
+function applySyncUI(){
+  document.getElementById("ghToken").value = syncCfg.token||"";
+  document.getElementById("gistId").value = syncCfg.gistId||"";
+  document.getElementById("syncPass").value = syncCfg.pass||"";
+  document.getElementById("autoSync").checked = !!syncCfg.auto;
+}
+
+async function gistFetch(path, method="GET", body=null){
+  if(!syncCfg.token) throw new Error("Token em falta.");
+  const res = await fetch("https://api.github.com"+path, {
+    method, headers: { "Authorization": "Bearer "+syncCfg.token, "Accept":"application/vnd.github+json" },
+    body: body? JSON.stringify(body) : null
+  });
+  if(!res.ok){
+    const t = await res.text();
+    throw new Error("Erro API GitHub: "+res.status+" "+t);
+  }
+  return res.json();
+}
+
+async function createGist(){
+  try{
+    const payload = { ...state, _syncTS: Date.now() };
+    const content = syncCfg.pass ? ("enc:"+JSON.stringify(await encryptState(payload, syncCfg.pass))) : JSON.stringify(payload, null, 2);
+    const j = await gistFetch("/gists", "POST", {
+      description: "Portfolio Pro sync",
+      public: false,
+      files: { "portfolio_pro.json": { content } }
+    });
+    syncCfg.gistId = j.id;
+    saveSync(syncCfg);
+    setSyncStatus("Gist criado: "+j.id, true);
+    applySyncUI();
+  }catch(e){
+    setSyncStatus("Falha ao criar Gist: "+e.message);
+  }
+}
+
+async function pushSync(){
+  try{
+    if(!syncCfg.gistId) throw new Error("Gist ID em falta.");
+    const payload = { ...state, _syncTS: Date.now() };
+    const content = syncCfg.pass ? ("enc:"+JSON.stringify(await encryptState(payload, syncCfg.pass))) : JSON.stringify(payload, null, 2);
+    await gistFetch("/gists/"+syncCfg.gistId, "PATCH", { files: { "portfolio_pro.json": { content } } });
+    setSyncStatus("Guardado na nuvem ✔", true);
+  }catch(e){
+    setSyncStatus("Falha ao guardar: "+e.message);
+  }
+}
+
+async function pullSync(){
+  try{
+    if(!syncCfg.gistId) throw new Error("Gist ID em falta.");
+    const j = await gistFetch("/gists/"+syncCfg.gistId, "GET");
+    const file = j.files && (j.files["portfolio_pro.json"] || Object.values(j.files)[0]);
+    if(!file || !file.content) throw new Error("Ficheiro não encontrado no Gist.");
+    let remote = null;
+    const txt = file.content.trim();
+    if(txt.startsWith("enc:")){
+      if(!syncCfg.pass) throw new Error("Esta cópia está cifrada. Indica a chave de cifragem.");
+      remote = await decryptState(JSON.parse(txt.slice(4)), syncCfg.pass);
+    } else {
+      remote = JSON.parse(txt);
+    }
+    const localTS = state._syncTS || 0;
+    const remoteTS = remote._syncTS || 0;
+    if(remoteTS >= localTS){
+      state = remote;
+      save(); renderAll(); recomputeOrders();
+      setSyncStatus("Sincronizado (pull) ✔", true);
+    } else {
+      setSyncStatus("Remoto desatualizado — faz push para atualizar a nuvem.", true);
+    }
+  }catch(e){
+    setSyncStatus("Falha ao sincronizar: "+e.message);
+  }
+}
+
+document.getElementById("btnCreateGist").onclick = async ()=>{
+  const inp = getSyncInputs();
+  syncCfg.token = inp.token; syncCfg.gistId = inp.gistId; syncCfg.pass = inp.pass; saveSync(syncCfg); applySyncUI();
+  await createGist();
+};
+document.getElementById("btnConnect").onclick = ()=>{
+  const inp = getSyncInputs();
+  syncCfg.token = inp.token; syncCfg.gistId = inp.gistId; syncCfg.pass = inp.pass; syncCfg.auto = document.getElementById("autoSync").checked;
+  saveSync(syncCfg); applySyncUI();
+  setSyncStatus("Ligado. Podes usar 'Sincronizar agora' ou 'Guardar na nuvem'.", true);
+};
+document.getElementById("btnPull").onclick = pullSync;
+document.getElementById("btnPush").onclick = pushSync;
+document.getElementById("autoSync").onchange = (e)=>{ syncCfg.auto = e.target.checked; saveSync(syncCfg); };
+
+function initSyncUI(){ applySyncUI(); if(syncCfg.auto && syncCfg.token && syncCfg.gistId){ pullSync(); } }
+
+// ---------- Init ----------
+function renderAll(){
+  renderPortfolio();
+  renderAllocation();
+  save();
+}
+
+function setTargetsFromCategory(){
+  const rows = computeRows();
+  const catVals = byCategory(state.items);
+  state.items.forEach((it, idx)=>{
+    const catTarget = state.categoryTargets[it.cat]||0;
+    const catTotalVal = Object.keys(catVals).includes(it.cat) ? catVals[it.cat] : 0;
+    const myVal = rows[idx].nowBase;
+    const shareInCat = catTotalVal>0 ? (myVal/catTotalVal) : 0;
+    it.target = +(catTarget * shareInCat).toFixed(2);
+  });
+  save();
+}
+
+async function init(){
+  setTargetsFromCategory();
+  renderAll();
+  updateFx();
+  setStatus("Pronto. Clica em “Atualizar automaticamente (Crypto + ETFs JustETF + Ações/REIT/Ouro)”.", "ok");
+  recomputeOrders();
+}
+init(); initSyncUI();
+switchTab("rebalance");
+
+document.getElementById("btnLive").onclick = updateLivePrices;
+document.getElementById("btnFx").onclick = updateFx;
+</script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(console.error));
+}
+</script>
+</body>
+</html>
