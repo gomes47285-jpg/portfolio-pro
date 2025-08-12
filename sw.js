@@ -1,5 +1,5 @@
 
-const CACHE = 'portfolio-pro-v1-5-5-sync';
+const CACHE = 'portfolio-pro-v1-5-5-stable';
 const ASSETS = [
   './index.html',
   './manifest.webmanifest'
